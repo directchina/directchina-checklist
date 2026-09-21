@@ -201,6 +201,7 @@ def responses():
             "notifications": [{"id": 1, "message": "<b>maintenance</b>"}],
         },
         cloud.STATUS: {"status": {"is_blocked": False, "is_permanent_blocked": False}},
+        cloud.cloud_servers.SERVERS: {"servers": [], "meta": {"total": 0}},
     }
 
 
@@ -224,6 +225,7 @@ def run_fake(monkeypatch, data):
             cloud.LEGACY_NOTIFICATIONS,
             cloud.NOTIFICATIONS,
             cloud.STATUS,
+            cloud.cloud_servers.SERVERS,
         )
     ]
     return report
@@ -247,8 +249,7 @@ def test_invalid_finances_isolated(monkeypatch, field, value):
     data[cloud.FINANCES]["finances"][field] = value
     report = run_fake(monkeypatch, data)
     assert report.exit_code == 2
-    assert report.findings[-1].check == "Аккаунт"
-    assert report.findings[-1].status == "OK"
+    assert next(f for f in report.findings if f.check == "Аккаунт").status == "OK"
 
 
 def test_incomplete_notifications_are_error(monkeypatch):

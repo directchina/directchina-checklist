@@ -7,6 +7,7 @@ from pathlib import Path
 import httpx
 from bs4 import BeautifulSoup
 
+from . import cloud_servers
 from .cloud_cookies import HOSTS, NAMES, cloud_session
 from .core import CheckError, number, records, required, rub
 
@@ -19,7 +20,9 @@ NEWS = "/api/v2/unread-count/news"
 NOTIFICATIONS = "/api/v2/notifications"
 LEGACY_NOTIFICATIONS = "/api/v1/notifications"
 STATUS = "/api/v1/account/status"
-READS = frozenset((FINANCES, NEWS, NOTIFICATIONS, LEGACY_NOTIFICATIONS, STATUS))
+READS = frozenset(
+    (FINANCES, NEWS, NOTIFICATIONS, LEGACY_NOTIFICATIONS, STATUS, cloud_servers.SERVERS)
+)
 
 
 class Cloud:
@@ -39,7 +42,7 @@ class Cloud:
             str(self.client.base_url).rstrip("/") != ORIGIN
             or not (
                 method == "GET"
-                and path in READS
+                and (path in READS or cloud_servers.is_statistics_read(path))
                 or method == "POST"
                 and path in (LOGIN, REFRESH)
             )
@@ -133,8 +136,8 @@ class Cloud:
             raise CheckError("Cloud не вернул токен сессии; проверьте вход в Chromium")
         self.client.headers["Authorization"] = "Bearer " + token
 
-    def json(self, path):
-        return self.request("GET", path)
+    def json(self, path, **kwargs):
+        return self.request("GET", path, **kwargs)
 
 
 def run(report, config, now):
@@ -220,5 +223,6 @@ def run(report, config, now):
             ("Новости", news),
             ("Уведомления", notifications),
             ("Аккаунт", status),
+            ("Серверы", lambda: cloud_servers.run(report, client, now)),
         ):
             report.attempt(SERVICE, check, operation)
