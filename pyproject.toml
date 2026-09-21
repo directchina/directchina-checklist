@@ -1,0 +1,16 @@
+[project]
+name = "directchina-checklist"
+version = "0.1.0"
+requires-python = ">=3.12"
+dependencies = [
+    "beautifulsoup4>=4.15.0",
+    "httpx>=0.28.1",
+    "python-dotenv>=1.2.3",
+    "rich>=15.0.0",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=9.1.1",
+    "ruff>=0.16.8",
+]
