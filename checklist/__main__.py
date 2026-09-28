@@ -13,6 +13,7 @@ from rich.text import Text
 
 from . import crm, smartvhod, timeweb_cloud, timeweb_hosting
 from .core import Report
+from .direct_route import direct_route
 
 ROOT = Path(__file__).resolve().parent.parent
 SERVICES = {
@@ -68,6 +69,10 @@ def main(argv=None):
     )
     parser.add_argument("--env-file", type=Path, default=ROOT / ".env")
     parser.add_argument("--config", type=Path, default=ROOT / "config.local.json")
+    parser.add_argument(
+        "--direct-interface", metavar="NIC",
+        help="Привязать подключения к точным адресам Timeweb в этом приложении к интерфейсу Linux",
+    )
     args = parser.parse_args(argv)
     report = Report()
     now = datetime.now().astimezone()
@@ -99,11 +104,11 @@ def main(argv=None):
         selected = SERVICES if args.service == "all" else [args.service]
         for key in selected:
             name, run = SERVICES[key]
-            report.attempt(
-                name,
-                "Обход",
-                lambda key=key, run=run: run(report, config.get(key, {}), now),
-            )
+            def operation(key=key, run=run):
+                with direct_route(args.direct_interface if key in {"hosting", "cloud"} else None):
+                    return run(report, config.get(key, {}), now)
+
+            report.attempt(name, "Обход", operation)
     if args.json:
         print(
             json.dumps(
