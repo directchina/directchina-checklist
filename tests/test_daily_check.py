@@ -224,3 +224,48 @@ def test_only_forecast_assumption_warning_is_explained():
     assert "тариф автосписания" in text.lower()
     assert "ручные продления" in text.lower()
     assert "цены на момент проверки" in text.lower()
+
+
+def test_smtp_bz_shows_balance_and_error_rate_even_when_ok():
+    report = {"checked_at": "2026-10-06T14:50:00+03:00", "exit_code": 0, "findings": [
+        {"service": "SMTP.BZ", "check": "Баланс", "status": "OK", "detail": "1 200.00 ₽"},
+        {"service": "SMTP.BZ", "check": "Последние отправки", "status": "OK", "detail": "Ошибки доставки: 3 из 100 (3%); доставлено: 97. Предупреждение от 5%."},
+    ]}
+    text = summarize(report)
+    assert "✅ SMTP.BZ" in text
+    assert "Баланс: 1 200.00 ₽" in text
+    assert "Ошибки доставки: 3 из 100 (3%)" in text
+    assert "Предупреждение от 5%" in text
+
+
+def test_smtp_bz_delivery_failure_warning_is_not_lost():
+    report = {"checked_at": "2026-10-06T14:50:00+03:00", "exit_code": 1, "findings": [
+        {"service": "SMTP.BZ", "check": "Баланс", "status": "OK", "detail": "100 ₽"},
+        {"service": "SMTP.BZ", "check": "Последние отправки", "status": "WARN", "detail": "Ошибки доставки: 6 из 100 (6%); доставлено: 94. Предупреждение от 5%."},
+    ]}
+    assert "⚠️ SMTP.BZ" in summarize(report)
+    assert "Ошибки доставки: 6 из 100" in summarize(report)
+
+
+def test_main_retries_only_transient_smtp_bz_read_errors(monkeypatch, capsys):
+    first = {"checked_at": "2026-10-06T14:50:00+03:00", "exit_code": 2, "findings": [
+        {"service": "SMTP.BZ", "check": "Обход", "status": "ERROR", "detail": "Таймаут SMTP.BZ (20 с)"},
+        {"service": "CRM", "check": "Системные новости", "status": "OK", "detail": "Нет"},
+    ]}
+    retry = {"checked_at": "2026-10-06T14:51:00+03:00", "exit_code": 0, "findings": [
+        {"service": "SMTP.BZ", "check": "Баланс", "status": "OK", "detail": "1 200.00 ₽"},
+        {"service": "SMTP.BZ", "check": "Последние отправки", "status": "OK", "detail": "Ошибки доставки: 3 из 100 (3%)"},
+    ]}
+    calls = []
+
+    def run(cmd, **kwargs):
+        calls.append(cmd)
+        data = first if len(calls) == 1 else retry
+        return subprocess.CompletedProcess(cmd, data["exit_code"], json.dumps(data), "")
+
+    monkeypatch.setattr(daily_check.subprocess, "run", run)
+    assert daily_check.main() == 0
+    text = capsys.readouterr().out
+    assert "3 из 100" in text and "Таймаут SMTP.BZ" not in text
+    assert "Восстановились после повторной попытки: SMTP.BZ" in text
+    assert calls == [daily_check.COMMAND, [*daily_check.COMMAND, "--service", "smtp_bz"]]

@@ -13,7 +13,7 @@ class CheckError(Exception):
 
 def required(name: str) -> str:
     value = os.environ.get(name, "")
-    if not name.endswith("_PASSWORD"):
+    if not name.endswith(("_PASSWORD", "_PASS")):
         value = value.strip()
     if not value:
         raise CheckError(f"Заполните {name} в .env")
@@ -44,7 +44,7 @@ def clean(value: str) -> str:
     value = re.sub(r"[\x00-\x1f\x7f-\x9f]", " ", value)
     for key, secret in os.environ.items():
         if secret and any(
-            part in key for part in ("PASSWORD", "TOKEN", "APP_KEY", "LOGIN")
+            part in key for part in ("PASSWORD", "_PASS", "TOKEN", "APP_KEY", "LOGIN")
         ):
             value = value.replace(secret, "***")
     return value

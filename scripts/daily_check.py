@@ -76,6 +76,8 @@ def summarize(report):
                     continue
             if check == "Баланс":
                 section.append(f"  Баланс: {f['detail'][:240]}")
+            elif service == "SMTP.BZ" and check == "Последние отправки":
+                section.append(f"  {f['detail'][:240]}")
             elif check == "Условия прогноза" and f["status"] == "WARN":
                 section.append(
                     "  • Прогноз ориентировочный: учтены ручные продления; "
@@ -97,7 +99,8 @@ def summarize(report):
 
 def retry_transient(report):
     """Retry only failed read-only cabinets; never consume Cloud's rotating refresh token twice."""
-    for service, slug in (("Timeweb Hosting", "hosting"), ("SmartVhod", "smartvhod"), ("CRM", "crm")):
+    for service, slug in (("Timeweb Hosting", "hosting"), ("SmartVhod", "smartvhod"),
+                          ("SMTP.BZ", "smtp_bz"), ("CRM", "crm")):
         errors = [f for f in report["findings"] if f["service"] == service and f["status"] == "ERROR"]
         def network_error(f):
             detail = f["detail"]
@@ -126,6 +129,10 @@ def retry_transient(report):
                 f["check"] == "Прогноз" and f["status"] in {"OK", "WARN"}
                 for f in replacements
             ):
+                continue
+            if service == "SMTP.BZ" and not {"Баланс", "Последние отправки"} <= {
+                f["check"] for f in replacements if f["status"] in {"OK", "WARN"}
+            }:
                 continue
         except (OSError, ValueError, KeyError, subprocess.TimeoutExpired):
             continue  # Keep the original error visible in the daily report.

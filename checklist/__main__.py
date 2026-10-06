@@ -11,7 +11,7 @@ from rich.console import Console
 from rich.table import Table
 from rich.text import Text
 
-from . import crm, smartvhod, timeweb_cloud, timeweb_hosting
+from . import crm, smartvhod, smtp_bz, timeweb_cloud, timeweb_hosting
 from .core import Report
 from .direct_route import direct_route
 
@@ -19,6 +19,7 @@ ROOT = Path(__file__).resolve().parent.parent
 SERVICES = {
     "hosting": ("Timeweb Hosting", timeweb_hosting.run),
     "smartvhod": ("SmartVhod", smartvhod.run),
+    "smtp_bz": ("SMTP.BZ", smtp_bz.run),
     "crm": ("CRM", crm.run),
     "cloud": ("Timeweb Cloud", timeweb_cloud.run),
 }
@@ -28,7 +29,7 @@ def render(report, now, details=False):
     console = Console()
     console.print(Text(f"Сисадминский обход · {now:%d.%m.%Y %H:%M %Z}", style="bold"))
     console.print(
-        "Только чтение · CRM: системные новости · SmartVhod: прогноз продлений",
+        "Только чтение · CRM: системные новости · SmartVhod: прогноз · SMTP.BZ: отправки",
         style="dim",
     )
     table = Table(show_lines=True, expand=True)
